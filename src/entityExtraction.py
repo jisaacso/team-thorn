@@ -1,4 +1,6 @@
 #from gensim import models
+import argparse
+import base64
 import gzip
 import unicodedata
 import logging
@@ -28,14 +30,52 @@ def strcleaner(postText):
     postText = postText.replace('microsoftsqlserverdtspipelineblobcolumn', '')
     postText = re.sub(wspaceNuker, ' ', postText)
     return postText
+
+def jsonifyEntities(entities, entityDict):
+    for entity in entities.split(','):
+        val = entity.split('/')
+        txt = val[:-1]
+        ent = val[-1]
+        try:
+            entityDict[ent.rstrip('$')] += txt
+        except KeyError:
+            print 'keyError %s' % ent
+    return entityDict
+        
+        
+def tagPostText(postText):
+    #dirty hack. 4% of the descriptions are nothing but a web link.
+    edict = dict()
+    etypes = ['PERSON', 'LOCATION', 'ORGANIZATION', 'PERCENT', 'DATE', 'TIME',\
+                    'MONEY']
+    for k in etypes:
+        edict[k] = list()
+
+    if postText[:4] == 'http':
+        return '', edict
+
+    postText = strcleaner(postText)
     
-class RDFTriples(object):
+    taggedText = tagtext(postText, 'localhost', 22222)
+    if not taggedText:
+        return '', edict
+
+    taggedText = joinEntities(taggedText)
+
+    entities = ','.join([w for w in taggedText.split(' ') if isEntity(w)])
+    if entities:
+        entities = jsonifyEntities(entities, edict)
+    else:
+        entities = edict
+    
+    return taggedText, entities
+    
+class Entities(object):
     def __init__(self, fname):
         self.fname = fname
+        self.entities = list()
     def __iter__(self):
         for linenum, line in enumerate(open(self.fname)):
-            if linenum == 0:
-                continue
             entry = line.split('\t')
             if not len(entry) == 13:
                 print 'Entry %s was crap' % linenum
@@ -47,24 +87,9 @@ class RDFTriples(object):
             postText = entry[5]
             postDate = entry[6]
 
-            #dirty hack. 4% of the descriptions are nothing but a web link.
-            if postText[:4] == 'http':
-                continue
+            yield tagPostText(postText)
 
-            postText = strcleaner(postText)
-            
-            taggedText = tagtext(postText, 'localhost', 22222)
-            if not taggedText:
-                continue
-            taggedText = joinEntities(taggedText)
-
-            entities = '\n'.join([w for w in taggedText.split(' ') if isEntity(w)])
-            if entities:
-                print entities
-            
-            yield taggedText
-
-
+"""
 def w2v(fname, modelSize, sampleThresh, negThresh, outFileName):
     iterobj = RDFTriples(fname)
     os.system("taskset -p 0xff %d" % os.getpid())
@@ -77,7 +102,8 @@ def w2v(fname, modelSize, sampleThresh, negThresh, outFileName):
     model.save(outName)
 
     return model
-
+"""
+"""
 if __name__ == '__main__':
     modelSize = int(sys.argv[1])
     sampleThresh = float(sys.argv[2])
@@ -89,3 +115,14 @@ if __name__ == '__main__':
 
     model = w2v('/datasets/freebase/freebase-rdf-2014-07-13-00-00.gz', 
                 modelSize, sampleThresh, negThresh, outFileName)
+"""
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--text', type=str)
+    args = parser.parse_args()
+    if not args.text:
+        print 'Usage: >> python entityExtractor.py --text "<base64 encoded text to tag>"'
+    print tagPostText(base64.b64decode(args.text))
+
+    
