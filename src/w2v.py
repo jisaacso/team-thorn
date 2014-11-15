@@ -19,33 +19,28 @@ class RDFTriples(object):
         self.fname = fname
 
     def __iter__(self):
-        for linenum, line in enumerate(gzip.open(self.fname)):
-            # Start with training a model on predicate, "description", only
-            if not 'common.topic.description' in line:
+        for linenum, line in enumerate(open(self.fname)):
+            entry = line.split('\t')
+            if not len(entry) == 13:
+                print 'Entry %s was crap' % linenum
+
+            siteName = entry[0]
+            city = entry[1]
+            location = entry[2]
+            postName = entry[3]
+            postText = entry[5]
+            postDate = entry[6]
+
+            #dirty hack. 4% of the descriptions are nothing but a web link.
+            if postText[:4] == 'http':
                 continue
 
-            rdf = line.split('common.topic.description>')
-            if not len(rdf) == 2:
-                print 'Warning: Errand right carrot, %s' % line
-                continue
-            # pick out english phrases
-            if not '@en' in rdf[1]:
-                continue
-            value = rdf[1].split('@en')[0]
-            #if len(value) <= 1:
-            #    continue
-            #elif len(value) > 2:
-            #    print 'Warning: @ found in value, %s' % value
-            
-            description = unicode(value.strip().lower().replace('\n',' ').replace('-',''), 'utf-8')
-            description = ''.join([c for c in fold_accents(description) if
-                                   c.isalpha() or c.isspace()])
-            onegrams = description.split()
-            #twograms = list()
-            #for i in range(0, len(onegrams) - 1):
-            #    twograms.append(' '.join( (onegrams[i], onegrams[i+1]) ))
-            #yield onegrams + twograms
-            yield onegrams
+            postText = ''.join([c for c in fold_accents(postText)])
+            postText = ''.join([c for c in postText if c.isspace() or c.isalnum()])
+            postText = ''.join([c for c in fold_accents(postText)]).lower()
+            postText.replace('microsoftsqlserverdtspipelineblobcolumn', '')
+            yield postText
+
 
 def w2v(fname, modelSize, sampleThresh, negThresh, outFileName):
     iterobj = RDFTriples(fname)
