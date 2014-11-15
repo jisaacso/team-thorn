@@ -4,6 +4,8 @@ import unicodedata
 import logging
 import os
 import sys
+from tagger import tagtext, joinEntities, isEntity
+import re
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
                     level=logging.INFO)
@@ -13,13 +15,27 @@ def fold_accents(raw):
         raw = unicode(raw, 'utf-8')
     return ''.join([c for c in unicodedata.normalize('NFKD', raw).encode('ascii', 'ignore')])
                     #if not unicodedata.combining(c)))
+def isspecialchar(char):
+    specialchars = ['$']
+    return char in specialchars
 
+def strcleaner(postText):
+    wspaceNuker = re.compile(' +')
+
+    postText = ''.join([c for c in fold_accents(postText)])
+    postText = ''.join([c for c in postText if c.isspace() or c.isalnum() or isspecialchar(c)])
+    postText = ''.join([c for c in fold_accents(postText)]).lower()
+    postText = postText.replace('microsoftsqlserverdtspipelineblobcolumn', '')
+    postText = re.sub(wspaceNuker, ' ', postText)
+    return postText
+    
 class RDFTriples(object):
     def __init__(self, fname):
         self.fname = fname
-
     def __iter__(self):
         for linenum, line in enumerate(open(self.fname)):
+            if linenum == 0:
+                continue
             entry = line.split('\t')
             if not len(entry) == 13:
                 print 'Entry %s was crap' % linenum
@@ -35,11 +51,18 @@ class RDFTriples(object):
             if postText[:4] == 'http':
                 continue
 
-            postText = ''.join([c for c in fold_accents(postText)])
-            postText = ''.join([c for c in postText if c.isspace() or c.isalnum()])
-            postText = ''.join([c for c in fold_accents(postText)]).lower()
-            postText.replace('microsoftsqlserverdtspipelineblobcolumn', '')
-            yield postText
+            postText = strcleaner(postText)
+            
+            taggedText = tagtext(postText, 'localhost', 22222)
+            if not taggedText:
+                continue
+            taggedText = joinEntities(taggedText)
+
+            entities = '\n'.join([w for w in taggedText.split(' ') if isEntity(w)])
+            if entities:
+                print entities
+            
+            yield taggedText
 
 
 def w2v(fname, modelSize, sampleThresh, negThresh, outFileName):
