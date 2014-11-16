@@ -87,7 +87,9 @@ class Entities(object):
             postText = entry[5]
             postDate = entry[6]
 
-            yield tagPostText(postText)
+            taggedText, ents = tagPostText(postText)
+
+            yield ents
 
 """
 def w2v(fname, modelSize, sampleThresh, negThresh, outFileName):
