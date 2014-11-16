@@ -1,4 +1,5 @@
 #from gensim import models
+import numpy as np
 import argparse
 import base64
 import gzip
@@ -9,8 +10,8 @@ import sys
 from tagger import tagtext, joinEntities, isEntity
 import re
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
-                    level=logging.INFO)
+#logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
+#                    level=logging.INFO)
 
 def fold_accents(raw):
     if type(raw) == str:
@@ -18,7 +19,7 @@ def fold_accents(raw):
     return ''.join([c for c in unicodedata.normalize('NFKD', raw).encode('ascii', 'ignore')])
                     #if not unicodedata.combining(c)))
 def isspecialchar(char):
-    specialchars = ['$']
+    specialchars = ['$', '.']
     return char in specialchars
 
 def strcleaner(postText):
@@ -32,12 +33,25 @@ def strcleaner(postText):
     return postText
 
 def jsonifyEntities(entities, entityDict):
+    etypes = ['PERSON', 'LOCATION', 'ORGANIZATION', 'PERCENT', 'DATE', 'TIME',\
+                    'MONEY']
+
     for entity in entities.split(','):
         val = entity.split('/')
         txt = val[:-1]
         ent = val[-1]
+        theKey = etypes[np.where([e in ent for e in etypes])[0][0]]
+        if theKey == 'MONEY':
+            txt_split = '_'.join(txt).split('_')
+            txt_split = [i.replace('$', '') for i in txt_split]
+            txt = []
+            for i in txt_split:
+                actuallyANumber = ''.join([c for c in i if c.isdigit()])
+                if actuallyANumber:
+                    txt.append(actuallyANumber)
         try:
-            entityDict[ent.rstrip('$')] += txt
+            entityDict[theKey] += txt
+
         except KeyError:
             print 'keyError %s' % ent
     return entityDict

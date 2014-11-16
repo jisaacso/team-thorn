@@ -1,6 +1,16 @@
 import json
 from elasticsearch import Elasticsearch
+from entityExtraction import tagPostText
+import re
 
+def getCost(mystr, regex):
+    vals = []
+    for rg in regex:
+        matches = re.findall(rg, mystr)
+        if matches:
+            vals += matches
+    return vals
+    
 def getState(es, city):
     q = """{
      "query": {
@@ -42,30 +52,34 @@ def getState(es, city):
     return city
 
 if __name__ == '__main__':
-    es = Elasticsearch(host='localhost', port=9200)
-    """
-    entgen = Entities('../data/escort_all/escort_all.tsv')
-    
-    with open('../data/escort_all/escort_all_money.tsv', 'wb') as fout:
-        for idx, line in enumerate(entgen):
-            if line['MONEY']:
-                print line
-            
-            #fout.write(date + '\t' + city + '\t' + state + '\n')
-            
-            if idx % 10000 == 0:
-                print idx / 7000000.0
 
-    """
+    regex1 = re.compile('\$\s*([4-9][0-9])[^0-9]')
+    regex2 = re.compile('\$\s*([1-9][0-9]0)[^0-9]')
+    regex3 = re.compile('[^0-9]([4-9][0-9])\s*\$')
+    regex4 = re.compile('[^0-9]([1-9][0-9]0)\s*\$')
+    regex = (regex1, regex2, regex3, regex4)
+    
+    es = Elasticsearch(host='localhost', port=9200)
     with open('../data/escort_all/escort_all.tsv', 'r') as fin:
-        with open('../data/escort_all/escort_all_states.tsv', 'wb') as fout:
+        with open('../data/escort_all/escort_all_states_money.tsv', 'wb') as fout:
             for idx, line in enumerate(fin):
                 tokens = line.split('\t')
+                siteName = tokens[0]
                 city = tokens[1]
+                location = tokens[2]
+                postName = tokens[3]
+                postText = tokens[5]
                 date = tokens[6]
                 state = getState(es, city)
-
-                fout.write(date + '\t' + city + '\t' + state + '\n')
+                
+                
+                cost = getCost(postName + '. ' + postText, regex)
+                #txt, tags = tagPostText(postName + '. ' + postText)
+                #cost = tags['MONEY']
+                #if not cost:
+                #    cost = ''
+                
+                fout.write(date + '\t' + city + '\t' + state + '\t' + str(cost) + '\n')
 
                 if idx % 10000 == 0:
                     print idx / 7000000.0
