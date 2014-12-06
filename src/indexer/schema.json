@@ -1,0 +1,45 @@
+{
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 1,
+        "similarity.default.type": "BM25",
+	"index": {
+	    "analysis": {
+		"analyzer": {
+		    "full_name_analyzer": {
+			"type": "custom",
+			"tokenizer": "full_name_tokenizer",
+			"filter": ["lowercase",  "myshingler"]
+		    }
+		},
+		"tokenizer": {
+		    "full_name_tokenizer": {
+			"type": "standard"
+		    }
+		},
+		"filter": {
+		    "myshingler": {
+			"type": "shingle",
+			"max_shingle_size": 5,
+			"min_shingle_size": 3,
+			"output_unigrams": "false"
+		    }
+		}
+	    }
+	}
+	    
+    },
+    "mappings": {
+        "posting": {
+            "properties": {
+		"city": {"type": "string", "index": "not_analyzed"},
+		"location": {"type": "string", "index": "not_analyzed"},
+		"post_name": {"type": "string", "index": "not_analyzed"},
+		"post_text": {"type": "string", "analyzer": "full_name_analyzer"},
+		"post_date": {"type": "date", "format": "YYYY-MM-DD HH:mm:ss"},
+		"post_email": {"type": "string", "index": "not_analyzed"},
+		"post_phone": {"type": "string", "index": "not_analyzed"}
+            }
+        }
+    }
+}
